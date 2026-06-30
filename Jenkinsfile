@@ -22,15 +22,18 @@ VERSION="1.${BUILD_NUMBER}"
 
 
 
-stage('Install Dependencies'){
+stage('Install Dependencies') {
 
-
-steps{
-
+steps {
 
 sh '''
 
+if [ ! -d "venv" ]; then
+
 python3 -m venv venv
+
+fi
+
 
 . venv/bin/activate
 
@@ -40,9 +43,7 @@ pip install -r requirements.txt
 
 '''
 
-
 }
-
 
 }
 

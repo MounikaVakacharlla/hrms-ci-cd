@@ -1,19 +1,67 @@
-#!/bin/bash
+stage('Parallel Testing') {
+
+parallel {
 
 
-VERSION=$1
+stage('Django Tests') {
+
+steps {
+
+sh '''
+
+. venv/bin/activate
+
+mkdir -p reports
+
+pytest > reports/test-report.xml || true
+
+'''
+
+}
+
+}
 
 
-echo "Deploying version $VERSION"
+
+stage('Flake8') {
+
+steps {
+
+sh '''
+
+. venv/bin/activate
+
+mkdir -p reports
+
+flake8 . > reports/flake8.txt || true
+
+'''
+
+}
+
+}
 
 
-export VERSION=$VERSION
+
+stage('Security Scan') {
+
+steps {
+
+sh '''
+
+. venv/bin/activate
+
+mkdir -p reports
+
+bandit -r . --exclude venv,.git,reports > reports/security.txt || true
+
+'''
+
+}
+
+}
 
 
-docker compose down
+}
 
-
-docker compose up -d
-
-
-echo "Deployment completed"
+}

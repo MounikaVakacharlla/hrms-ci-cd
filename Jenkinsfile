@@ -16,23 +16,7 @@ VERSION="1.${BUILD_NUMBER}"
 }
 
 
-stages {
 
-
-
-stage('Git Checkout'){
-
-
-steps{
-
-
-checkout scm
-
-
-}
-
-
-}
 
 
 

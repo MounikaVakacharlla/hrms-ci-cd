@@ -3,6 +3,12 @@ pipeline {
 
 
 agent any
+  
+  options {
+
+timeout(time:30, unit:'MINUTES')
+
+}
 
 
 environment {
@@ -38,7 +44,7 @@ fi
 . venv/bin/activate
 
 
-pip install -r requirements.txt
+pip install --cache-dir ~/.cache/pip -r requirements.txt
 
 
 '''
@@ -71,6 +77,7 @@ sh '''
 mkdir -p reports
 
 pytest > reports/test-report.xml || true
+
 
 
 '''
@@ -116,7 +123,7 @@ sh '''
 
 mkdir -p reports
 
-bandit -r . --exclude venv > reports/security.txt || true
+bandit -r . --exclude venv,.git,reports > reports/security.txt || true
 
 
 '''
@@ -167,8 +174,8 @@ steps{
 sh """
 
 
-docker build \
--t ${IMAGE_NAME}:${VERSION} .
+
+docker build --no-cache=false -t ${IMAGE_NAME}:${VERSION} .
 
 
 """

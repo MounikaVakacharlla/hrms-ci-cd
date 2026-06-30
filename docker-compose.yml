@@ -1,1 +1,17 @@
 
+version: "3"
+
+services:
+
+ hrms:
+
+  image: blackroth/hrms:${VERSION}
+
+  container_name: hrms-app
+
+  ports:
+
+   - "8000:8000"
+
+
+  restart: always

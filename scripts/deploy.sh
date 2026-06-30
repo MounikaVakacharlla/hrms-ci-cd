@@ -4,13 +4,16 @@
 VERSION=$1
 
 
-echo "Deploying HRMS version $VERSION"
+echo "Deploying version $VERSION"
+
+
+export VERSION=$VERSION
 
 
 docker compose down
 
 
-VERSION=$VERSION docker compose up -d
+docker compose up -d
 
 
 echo "Deployment completed"

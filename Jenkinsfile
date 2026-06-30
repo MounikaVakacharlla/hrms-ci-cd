@@ -1,342 +1,277 @@
-
 pipeline {
 
+    agent any
 
-agent any
-  
-  options {
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
 
-timeout(time:30, unit:'MINUTES')
+    environment {
 
-}
+        IMAGE_NAME = "blackroth/hrms"
+        VERSION = "1.${BUILD_NUMBER}"
 
+    }
 
-environment {
 
+    stages {
 
-IMAGE_NAME="blackroth/hrms"
 
-VERSION="1.${BUILD_NUMBER}"
+        stage('Install Dependencies') {
 
+            steps {
 
-}
-  stages{
-    
+                sh '''
+                if [ ! -d "venv" ]; then
+                    python3 -m venv venv
+                fi
 
+                . venv/bin/activate
 
+                pip install --cache-dir ~/.cache/pip -r requirements.txt
+                '''
 
+            }
 
+        }
 
 
-stage('Install Dependencies') {
 
-steps {
+        stage('Parallel Testing') {
 
-sh '''
+            parallel {
 
-if [ ! -d "venv" ]; then
 
-python3 -m venv venv
+                stage('Django Tests') {
 
-fi
+                    steps {
 
+                        sh '''
+                        mkdir -p reports
 
-. venv/bin/activate
+                        venv/bin/pytest \
+                        > reports/test-report.xml || true
+                        '''
 
+                    }
 
-pip install --cache-dir ~/.cache/pip -r requirements.txt
+                }
 
 
-'''
 
-}
+                stage('Flake8') {
 
-}
+                    steps {
 
+                        sh '''
+                        mkdir -p reports
 
+                        venv/bin/flake8 . \
+                        > reports/flake8.txt || true
+                        '''
 
+                    }
 
+                }
 
-stage('Parallel Testing'){
 
 
-parallel {
+                stage('Security Scan') {
 
+                    steps {
 
+                        sh '''
+                        mkdir -p reports
 
-stage('Django Tests'){
+                        venv/bin/bandit -r . \
+                        --exclude venv,.git,reports \
+                        > reports/security.txt || true
+                        '''
 
+                    }
 
-steps{
+                }
 
 
-sh '''
+            }
 
-. venv/bin/activate
+        }
 
-mkdir -p reports
 
-pytest > reports/test-report.xml || true
 
 
+        stage('Archive Reports') {
 
-'''
+            steps {
 
+                archiveArtifacts(
+                    artifacts: 'reports/*',
+                    allowEmptyArchive: true
+                )
 
-}
+            }
 
+        }
 
-}
 
 
 
-stage('Flake8'){
+        stage('Docker Build') {
 
+            steps {
 
-steps{
+                sh """
 
+                docker build \
+                --no-cache=false \
+                -t ${IMAGE_NAME}:${VERSION} .
 
-sh '''
+                """
 
-mkdir -p reports
+            }
 
-flake8 . > reports/flake8.txt || true
+        }
 
 
-'''
 
 
-}
+        stage('Docker Push') {
 
+            steps {
 
-}
 
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
 
 
-stage('Security Scan'){
+                    sh '''
 
+                    echo $DOCKER_PASS | docker login \
+                    -u $DOCKER_USER \
+                    --password-stdin
 
-steps{
 
+                    docker push ${IMAGE_NAME}:${VERSION}
 
-sh '''
+                    '''
 
-mkdir -p reports
+                }
 
-bandit -r . --exclude venv,.git,reports > reports/security.txt || true
 
+            }
 
-'''
+        }
 
 
-}
 
 
-}
 
+        stage('Deploy Staging') {
 
+            steps {
 
-}
 
+                sh """
 
-}
+                bash scripts/deploy.sh ${VERSION}
 
+                """
 
+            }
 
+        }
 
 
-stage('Archive Reports'){
 
 
-steps{
 
+        stage('Health Check') {
 
-archiveArtifacts artifacts:'reports/*',
-allowEmptyArchive:true
+            steps {
 
 
-}
+                sh """
 
+                bash scripts/healthcheck.sh
 
-}
+                """
 
+            }
 
+        }
 
 
 
 
-stage('Docker Build'){
 
+        stage('Production Approval') {
 
-steps{
+            steps {
 
 
-sh """
+                input(
+                    message: "Deploy ${VERSION} to Production?"
+                )
 
 
+            }
 
-docker build --no-cache=false -t ${IMAGE_NAME}:${VERSION} .
+        }
 
 
-"""
 
 
-}
 
+        stage('Production Deployment') {
 
-}
+            steps {
 
 
+                sh """
 
+                bash scripts/deploy.sh ${VERSION}
 
-stage('Docker Push'){
+                """
 
 
-steps{
+            }
 
+        }
 
-sh """
 
+    }
 
-docker push ${IMAGE_NAME}:${VERSION}
 
 
-"""
 
+    post {
 
-}
 
+        failure {
 
-}
+            sh """
 
+            bash scripts/rollback.sh previous
 
+            """
 
+        }
 
 
-stage('Deploy Staging'){
 
+        success {
 
-steps{
+            echo "Deployment Successful"
 
+        }
 
-sh """
 
-
-bash scripts/deploy.sh ${VERSION}
-
-
-"""
-
-
-}
-
-
-}
-
-
-
-
-stage('Health Check'){
-
-
-steps{
-
-
-sh """
-
-
-bash scripts/healthcheck.sh
-
-
-"""
-
-
-}
-
-
-}
-
-
-
-
-
-stage('Production Approval'){
-
-
-steps{
-
-
-input message:
-"Deploy ${VERSION} to Production?"
-
-
-}
-
-
-}
-
-
-
-
-
-
-stage('Production Deployment'){
-
-
-steps{
-
-
-sh """
-
-
-bash scripts/deploy.sh ${VERSION}
-
-
-"""
-
-
-}
-
-
-}
-
-
-
-}
-
-
-
-post {
-
-
-
-failure{
-
-
-sh """
-
-
-bash scripts/rollback.sh previous
-
-
-"""
-
-
-}
-
-
-
-
-success{
-
-
-echo "Deployment Successful"
-
-
-}
-
-
-}
+    }
 
 
 }

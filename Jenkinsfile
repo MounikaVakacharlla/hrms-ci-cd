@@ -14,6 +14,8 @@ VERSION="1.${BUILD_NUMBER}"
 
 
 }
+  stages{
+    
 
 
 

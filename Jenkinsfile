@@ -14,10 +14,8 @@ VERSION="1.${BUILD_NUMBER}"
 
 
 }
-
-
-stages {
-
+  stages{
+    
 
 
 
@@ -69,6 +67,8 @@ sh '''
 
 . venv/bin/activate
 
+mkdir -p reports
+
 pytest > reports/test-report.xml || true
 
 
@@ -90,6 +90,8 @@ steps{
 
 sh '''
 
+mkdir -p reports
+
 flake8 . > reports/flake8.txt || true
 
 
@@ -110,6 +112,8 @@ steps{
 
 
 sh '''
+
+mkdir -p reports
 
 bandit -r . --exclude venv > reports/security.txt || true
 
